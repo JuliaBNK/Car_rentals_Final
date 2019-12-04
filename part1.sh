@@ -105,7 +105,7 @@ days=$(psql -d ${dbname} -t -c "SELECT number_of_days from booking_tbl WHERE boo
 car_id=$(psql -d ${dbname} -t -c "SELECT car_id from booking_tbl WHERE booking_id = $booking_id" )
 rate=$(psql -d ${dbname} -t -c "SELECT rate from car_tbl WHERE car_id = $car_id" )
 #charge=$(psql -d ${dbname} -t -c "SELECT check_out_charge($bookingid)" )
-
+charge=$(awk "BEGIN {printf \"%.2f\", ${days}*${rate}}") 
 
 psql $dbname << EOF 
 INSERT INTO check_out_tbl(booking_id, employee_id, insurance_id, invoice_date, charge) 
