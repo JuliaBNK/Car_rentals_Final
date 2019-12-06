@@ -29,26 +29,49 @@ echo
 }
 
 
-
-
 pickB()
 {
 # add constraint that you cannot book the same car for the same period
-# add payment info  
 
 echo
 echo  "Booking a car"
 echo   
+#user input
 read -p "Enter customer ID number > " customer_id
 read -p "Enter car ID number > " car_id
-read -p "Enter payment ID > " payment_id
+read -p "Enter credit card number > " creadit_card_number
+read -p "Enter credit card expiration year(YYYY) > " year
+read -p "Enter credit card expiration month(MM) > " month
+day="01"
+date=$year$month$day
 read -p "Starting date of rent (YYYY-MM-DD) > " date_out
 read -p "Date when the car should be returned (YYYY-MM-DD) > " return_date
+
+# add a new record into 
+psql $dbname << EOF
+ 
+INSERT INTO payment_tbl (credit_card_number, credit_card_exp_date, customer_id)
+VALUES  
+('$creadit_card_number', TO_DATE('$date', 'YYYYMMDD'), '$customer_id'); 
+EOF
+
+last_payment_id=$(psql -d ${dbname} -t -c "SELECT last_value from payment_tbl_payment_id_seq" )
+
+count=$(psql -d ${dbname} -t -c "SELECT count(*) FROM booking_tbl WHERE car_id = $car_id AND ((date_out < '$date_out'::date AND return_date > '$return_date'::date) OR (date_out < '$date_out'::date AND return_date < '$return_date'::date) OR (date_out > '$date_out'::date AND return_date < '$return_date'::date) OR(date_out > '$date_out'::date AND return_date > '$return_date'::date)) " )
+echo "Count = "$count
+
+while [[ $count -gt 0 ]]
+do
+echo "This car is already booked for these dates. Try to book another car!"
+read -p "Enter car ID number > " car_id
+count=$(psql -d ${dbname} -t -c "SELECT count(*) FROM booking_tbl WHERE car_id = $car_id AND ((date_out < '$date_out'::date AND return_date > '$return_date'::date) OR (date_out < '$date_out'::date AND return_date < '$return_date'::date) OR (date_out > '$date_out'::date AND return_date < '$return_date'::date) OR(date_out > '$date_out'::date AND return_date > '$return_date'::date)) " )
+done
+
 
 psql $dbname << EOF 
 INSERT INTO booking_tbl(customer_id, car_id, payment_id, date_out, return_date) 
 VALUES 
-('$customer_id', '$car_id', '$payment_id', '$date_out', '$return_date');
+('$customer_id', '$car_id', '$last_id', '$date_out', '$return_date');
 EOF
 
 last_id=$(psql -d ${dbname} -t -c "SELECT last_value from booking_tbl_booking_id_seq" )
@@ -130,18 +153,20 @@ EOF
 pickE()
 {
 #Car Return
-odometer=$(psql -d ${dbname} -t -c "SELECT odometer from car_tbl where car_id = $return_car_id" )
+
 
 read -p "Enter your Employee ID:  " return_employee_id
 read -p "Enter the Car ID you are returning:  " return_car_id
 read -p "Enter the Customer ID:  " return_customer_id
+#odometer=$(psql -d ${dbname} -t -c "SELECT odometer from car_tbl where car_id = $return_car_id" )
 read -p "Enter the new milage:  " milage_in                     #Trigger Calculate miles total or if elif statement
 
-while [ $milage_in -lt $odometer] 
-do 
-echo "New mileage cannot be less than previous odometer reading"
-read -p "Enter the new milage:  " milage_in   
-done
+#while [[ $milage_in -le $odometer ]];
+#do 
+#echo "New mileage cannot be less than previous odometer reading."
+#
+#read -p "Enter the new milage:  " milage_in   
+#done
 
 read -p "How many gallons of gas did we add to fill:  " gallons_gas_filled
 read -p "How much did the gas cost per gallon:  " gas_price_per_gallon
@@ -250,16 +275,13 @@ EOF
 extra=$(psql -d ${dbname} -t -c "SELECT SUM(charge) FROM extra_charge_view")
 echo " Extra charge to be paid: $" $extra
 
-psql $dbname << EOF 
+psql $dbname << EOF
 BEGIN;
 UPDATE return_tbl SET extra_charge = $extra where return_id = $return_id;
+UPDATE return_tbl SET total = $extra + (SELECT  gas_total  FROM return_tbl  WHERE return_id = $return_id) WHERE return_id = $return_id;  
 SELECT  * from car_tbl where car_id = get_car_id_last_id();
 COMMIT
 EOF
-# change odometer in  car_tbl to new milage 
-
-
-# transaction
 }
 
 
@@ -267,7 +289,7 @@ displayOptions
 echo 
 read -p "Enter appropriate option >  " reply
 while [[ $reply  != "Q" && $reply  != "q" ]] 
-do 
+do
 case $reply in
       A|a) pickA;;
       B|b) pickB;;
