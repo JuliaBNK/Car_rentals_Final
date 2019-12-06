@@ -22,7 +22,8 @@ echo "Add customer information             ==========> [I]" #M
 echo "List all customers                   ==========> [J]" #M
 echo "Find a customer                      ==========> [K]" #M
 echo "Extra charge                         ==========> [L]" #J+
-echo "Search for a car                     ==========> [S]" #J???
+echo "Invoice for last return              ==========> [O]" #M
+echo "Update  odometer                     ==========> [U]" #M 
 echo "To quit                              ==========> [Q]"
 echo
 }
@@ -125,6 +126,38 @@ EOF
 
 }
 
+
+pickE()
+{
+#Car Return
+odometer=$(psql -d ${dbname} -t -c "SELECT odometer from car_tbl where car_id = $return_car_id" )
+
+read -p "Enter your Employee ID:  " return_employee_id
+read -p "Enter the Car ID you are returning:  " return_car_id
+read -p "Enter the Customer ID:  " return_customer_id
+read -p "Enter the new milage:  " milage_in                     #Trigger Calculate miles total or if elif statement
+
+while [ $milage_in -lt $odometer] 
+do 
+echo "New mileage cannot be less than previous odometer reading"
+read -p "Enter the new milage:  " milage_in   
+done
+
+read -p "How many gallons of gas did we add to fill:  " gallons_gas_filled
+read -p "How much did the gas cost per gallon:  " gas_price_per_gallon
+read -p "Do you have any notes for this rental?  " rental_notes
+echo "employeeID: " $return_employee_id  "returncarID: " $return_car_id  "customerID: " $return_customer_id  "Your milage in: " $milage_in
+echo "Gallons Filled by us:"  $gallons_gas_filled  "Price per gallon: " $gas_price_per_gallon  "Rental notes: " $rental_notes
+
+psql $dbname <<EOF
+INSERT INTO return_tbl(car_id, customer_id, employee_id, new_mileage, gas_refill, price_per_gallon, notes)
+VALUES ($return_car_id, $return_customer_id, $return_employee_id, $milage_in, $gallons_gas_filled, $gas_price_per_gallon, '$rental_notes');
+EOF
+}
+
+
+
+
 #function to add employee information 
 pickF()
 {
@@ -218,10 +251,15 @@ extra=$(psql -d ${dbname} -t -c "SELECT SUM(charge) FROM extra_charge_view")
 echo " Extra charge to be paid: $" $extra
 
 psql $dbname << EOF 
-UPDATE  return_tbl SET extra_charge = $extra where return_id = $return_id;
+BEGIN;
+UPDATE return_tbl SET extra_charge = $extra where return_id = $return_id;
+SELECT  * from car_tbl where car_id = get_car_id_last_id();
+COMMIT
 EOF
-#calculate the total for return_tbl
+# change odometer in  car_tbl to new milage 
 
+
+# transaction
 }
 
 
@@ -244,6 +282,8 @@ case $reply in
       K|k) pickK;; 
       L|l) pickL;;
       S|s) pickS;;
+      O|o) pickO;;
+      U|u) pickU;;
       Q|q) exit;;
       *) echo "Invalid choice!"; exit;;
  esac
