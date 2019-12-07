@@ -1,5 +1,4 @@
  #!/bin/bash
-# Julia Buniak
 
 dbname="ibuniak"
 read -p "Enter you first and last name > " first last 
@@ -28,18 +27,18 @@ echo "To quit                              ==========> [Q]"
 echo
 }
 
-
+#Julia Buniak
+# function to book a car 
 pickB()
 {
-# add constraint that you cannot book the same car for the same period
-
 echo
 echo  "Booking a car"
 echo   
+
 #user input
 read -p "Enter customer ID number > " customer_id
 read -p "Enter car ID number > " car_id
-read -p "Enter credit card number > " creadit_card_number
+read -p "Enter credit card number > " credit_card_number
 read -p "Enter credit card expiration year(YYYY) > " year
 read -p "Enter credit card expiration month(MM) > " month
 day="01"
@@ -47,35 +46,34 @@ date=$year$month$day
 read -p "Starting date of rent (YYYY-MM-DD) > " date_out
 read -p "Date when the car should be returned (YYYY-MM-DD) > " return_date
 
-# add a new record into 
-psql $dbname << EOF
- 
+# add a new record into payment_tbl 
+psql $dbname << EOF 
+
 INSERT INTO payment_tbl (credit_card_number, credit_card_exp_date, customer_id)
-VALUES  
-('$creadit_card_number', TO_DATE('$date', 'YYYYMMDD'), '$customer_id'); 
+VALUES ('$credit_card_number', TO_DATE('$date', 'YYYYMMDD'), $customer_id);
 EOF
 
-last_payment_id=$(psql -d ${dbname} -t -c "SELECT last_value from payment_tbl_payment_id_seq" )
-
-count=$(psql -d ${dbname} -t -c "SELECT count(*) FROM booking_tbl WHERE car_id = $car_id AND ((date_out < '$date_out'::date AND return_date > '$return_date'::date) OR (date_out < '$date_out'::date AND return_date < '$return_date'::date) OR (date_out > '$date_out'::date AND return_date < '$return_date'::date) OR(date_out > '$date_out'::date AND return_date > '$return_date'::date)) " )
-echo "Count = "$count
+count=$(psql -d ${dbname} -t -c "SELECT count(*) FROM booking_tbl WHERE car_id = $car_id AND ((date_out < '$date_out'::date AND return_date > '$return_date'::date) OR (date_out < '$date_out'::date AND return_date < '$return_date'::date AND return_date > '$date_out'::date) OR (date_out > '$date_out'::date AND return_date < '$return_date'::date) OR (date_out > '$date_out'::date AND return_date > '$return_date'::date AND date_out < '$return_date'::date)) " )
+#echo "Count = "$count
 
 while [[ $count -gt 0 ]]
 do
 echo "This car is already booked for these dates. Try to book another car!"
 read -p "Enter car ID number > " car_id
-count=$(psql -d ${dbname} -t -c "SELECT count(*) FROM booking_tbl WHERE car_id = $car_id AND ((date_out < '$date_out'::date AND return_date > '$return_date'::date) OR (date_out < '$date_out'::date AND return_date < '$return_date'::date) OR (date_out > '$date_out'::date AND return_date < '$return_date'::date) OR(date_out > '$date_out'::date AND return_date > '$return_date'::date)) " )
+count=$(psql -d ${dbname} -t -c "SELECT count(*) FROM booking_tbl WHERE car_id = $car_id AND ((date_out < '$date_out'::date AND return_date > '$return_date'::date) OR (date_out < '$date_out'::date AND return_date < '$return_date'::date AND return_date > '$date_out'::date) OR (date_out > '$date_out'::date AND return_date < '$return_date'::date) OR(date_out > '$date_out'::date AND return_date > '$return_date'::date AND date_out < '$return_date'::date)) " )
 done
 
+payment_id=$(psql -d ${dbname} -t -c "SELECT last_value from payment_tbl_payment_id_seq" )
 
+#add  booking into booking_tbl
 psql $dbname << EOF 
 INSERT INTO booking_tbl(customer_id, car_id, payment_id, date_out, return_date) 
-VALUES 
-('$customer_id', '$car_id', '$last_id', '$date_out', '$return_date');
+VALUES ($customer_id, $car_id, $payment_id, '$date_out', '$return_date');
 EOF
 
 last_id=$(psql -d ${dbname} -t -c "SELECT last_value from booking_tbl_booking_id_seq" )
 
+#display information about last booking
 echo  
 echo "Here is information about your booking: "
 echo 
@@ -90,10 +88,10 @@ AND b.payment_id = p.payment_id;
 EOF
 }
 
-#method to check rented cars
+#Julia Buniak
+#method to check what cars are rented out for specific day
 pickC()
 {
-#Julia
 echo "Checking the rented cars for chosen date" 
 echo
 read -p "Enter the date (YYYY-MM-DD) > " date
@@ -105,9 +103,9 @@ WHERE date_out <= '$date'::date AND return_date >= '$date'::date;
 EOF
 }
 
+#Julia Buniak
 # method to check out a car 
 # to calculate the total amount with extra charge
-# to calculate the ins payment
 pickD()
 {
 echo 
@@ -115,25 +113,43 @@ echo "Checking out a car"
 echo
 read -p "Enter booking ID number > " booking_id
 read -p "Enter employee ID number > " employee_id
-read -p "Enter insurance ID number > " insurance_id
+read -p "Enter insurance company > " company
+read -p "Enter policy number > " policy_number
+read -p "Enter insurance type: 1 for purchased or 2 for customer personal insurance > " type_id
 
- 
+customer_id=$(psql -d ${dbname} -t -c "SELECT customer_id from booking_tbl WHERE booking_id = $booking_id" )
+
+#add a new record into ins_tbl 
+psql $dbname << EOF 
+
+INSERT INTO ins_tbl (customer_id, company, policy_number, type_id)
+VALUES ($customer_id, '$company', '$policy_number', $type_id);
+EOF
+
+last_ins_id=$(psql -d ${dbname} -t -c "SELECT last_value from ins_tbl_ins_id_seq" ) 
+
 days=$(psql -d ${dbname} -t -c "SELECT number_of_days from booking_tbl WHERE booking_id = $booking_id" )
 car_id=$(psql -d ${dbname} -t -c "SELECT car_id from booking_tbl WHERE booking_id = $booking_id" )
 rate=$(psql -d ${dbname} -t -c "SELECT rate from car_tbl WHERE car_id = $car_id" )
-ins_rate=$(psql -d ${dbname} -t -c "SELECT day_rate from insurance_type_tbl WHERE type_id = (SELECT type_id FROM ins_tbl WHERE ins_id = $insurance_id)" )
+ins_rate=$(psql -d ${dbname} -t -c "SELECT day_rate from insurance_type_tbl WHERE type_id = (SELECT type_id FROM ins_tbl WHERE ins_id = $last_ins_id)" )
 
+# to calculate the base payment for booked days (formula: days * rate)
 charge=$(awk "BEGIN {printf \"%.2f\", ${days}*${rate}}") 
+# to calculate the ins payment for booked days (formula: days * ins_rate)
 ins_payment=$(awk "BEGIN {printf \"%.2f\", ${days}*${ins_rate}}") 
 
+
+#insert current check out into check_out_tbl
 psql $dbname << EOF 
 INSERT INTO check_out_tbl(booking_id, employee_id, insurance_id, invoice_date, charge, ins_payment) 
 VALUES 
-($booking_id, $employee_id, $insurance_id, current_date, $charge, $ins_payment);
+($booking_id, $employee_id, $last_ins_id, current_date, $charge, $ins_payment);
 EOF
 
 last_id=$(psql -d ${dbname} -t -c "SELECT last_value from check_out_tbl_check_out_id_seq" )
 
+
+#display info about last check_out
 echo  
 echo "Here is information about your check out: "
 echo 
@@ -146,15 +162,12 @@ AND ch.booking_id = b.booking_id
 AND b.customer_id = ctm.customer_id 
 AND b.car_id = car.car_id;
 EOF
-
 }
 
-
+#Matthew Mims
+#Function for Car Return
 pickE()
 {
-#Car Return
-
-
 read -p "Enter your Employee ID:  " return_employee_id
 read -p "Enter the Car ID you are returning:  " return_car_id
 read -p "Enter the Customer ID:  " return_customer_id
@@ -180,9 +193,7 @@ VALUES ($return_car_id, $return_customer_id, $return_employee_id, $milage_in, $g
 EOF
 }
 
-
-
-
+#Julia Buniak
 #function to add employee information 
 pickF()
 {
@@ -213,6 +224,10 @@ EOF
 
 last_id=$(psql -d ${dbname} -t -c "SELECT last_value from employee_tbl_employee_id_seq" )
 
+echo  
+echo "Here is information about a new employee: "
+echo 
+
 psql $dbname << EOF 
 SELECT first_name, middle_name, last_name, phone, email, address, city, state, zip, dob, gender, position
 FROM  employee_tbl
@@ -236,16 +251,18 @@ SELECT * FROM employee_tbl;
 EOF
 }
 
+
 #Julia Buniak
 #Function to calculate extra charge
-# add invoice 
 pickL() {
 echo
 echo "Extra charge"
 echo
-
+#return_id is connected to a customer and a car
 read -p "Enter return id > "  return_id
 read -p "Enter extra charge id > " extra_charge_id 
+
+#add necessary extra charges to database
 while [[ $extra_charge_id  != "Q" && $extra_charge_id  != "q" ]] 
 do 
 psql $dbname << EOF 
@@ -257,6 +274,7 @@ echo "Now you can enter another extra charge or enter 'Q' to exit"
 read -p "Enter extra charge id > " extra_charge_id 
 done
 
+#create view through wich we can calculate the total anout for extra charges
 psql $dbname << EOF  
 DROP View  extra_charge_view;
 CREATE View  extra_charge_view AS
@@ -275,6 +293,8 @@ EOF
 extra=$(psql -d ${dbname} -t -c "SELECT SUM(charge) FROM extra_charge_view")
 echo " Extra charge to be paid: $" $extra
 
+# add total amount of extra charges to return_tb
+# calculate the total amount needs to be paid during return (gas_total + extra charges)
 psql $dbname << EOF
 BEGIN;
 UPDATE return_tbl SET extra_charge = $extra where return_id = $return_id;
@@ -284,7 +304,7 @@ COMMIT
 EOF
 }
 
-
+#Julia Buniak
 displayOptions
 echo 
 read -p "Enter appropriate option >  " reply
@@ -292,6 +312,7 @@ while [[ $reply  != "Q" && $reply  != "q" ]]
 do
 case $reply in
       A|a) pickA;;
+      X|x) pickX;;
       B|b) pickB;;
       C|c) pickC;;
       D|d) pickD;;
