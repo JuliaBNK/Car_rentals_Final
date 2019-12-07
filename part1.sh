@@ -27,13 +27,35 @@ echo "To quit                              ==========> [Q]"
 echo
 }
 
+#Matthew Mims
+#function to chack available cars for certain period 
+pickA()
+{
+read -p "Enter date out" date_out
+read -p "Enter return date" return_date
+
+psql $dbname << EOF
+SELECT car_id as available, date_out, return_date as last_day_prior_rental, '$date_out' AS pick_up_date, '$return_date' AS return_date
+FROM booking_tbl
+WHERE car_id NOT IN
+                (select distinct car_id
+                 from booking_tbl
+                 where date_out between '$date_out'::date and '$return_date'::date
+                        or return_date between '$date_out'::date and '$return_date'::date
+                 group by car_id)
+GROUP BY car_id, booking_id
+Order By car_id;
+EOF
+}
+
+
 #Julia Buniak
 # function to book a car 
 pickB()
 {
 echo
 echo  "Booking a car"
-echo   
+echo
 
 #user input
 read -p "Enter customer ID number > " customer_id
@@ -168,19 +190,11 @@ EOF
 #Function for Car Return
 pickE()
 {
+#Car Return
 read -p "Enter your Employee ID:  " return_employee_id
 read -p "Enter the Car ID you are returning:  " return_car_id
 read -p "Enter the Customer ID:  " return_customer_id
-#odometer=$(psql -d ${dbname} -t -c "SELECT odometer from car_tbl where car_id = $return_car_id" )
 read -p "Enter the new milage:  " milage_in                     #Trigger Calculate miles total or if elif statement
-
-#while [[ $milage_in -le $odometer ]];
-#do 
-#echo "New mileage cannot be less than previous odometer reading."
-#
-#read -p "Enter the new milage:  " milage_in   
-#done
-
 read -p "How many gallons of gas did we add to fill:  " gallons_gas_filled
 read -p "How much did the gas cost per gallon:  " gas_price_per_gallon
 read -p "Do you have any notes for this rental?  " rental_notes
@@ -192,6 +206,7 @@ INSERT INTO return_tbl(car_id, customer_id, employee_id, new_mileage, gas_refill
 VALUES ($return_car_id, $return_customer_id, $return_employee_id, $milage_in, $gallons_gas_filled, $gas_price_per_gallon, '$rental_notes');
 EOF
 }
+
 
 #Julia Buniak
 #function to add employee information 
@@ -250,6 +265,98 @@ psql $dbname << EOF
 SELECT * FROM employee_tbl;
 EOF
 }
+
+#Matthew Mims
+#Find an employee
+pickH()
+{
+#add different query columns
+
+read -p "Find all information on an employee.  Enter the employee's ID:  " find_emp_id
+
+psql $dbname << EOF
+select * from employee_tbl where employee_id = $find_emp_id;
+EOF
+}
+
+#Matthew Mims
+# Function to add customer information to customer_tbl
+pickI()
+{
+read -p "Enter the last name of the customer:  " add_lastname
+read -p "Enter the middle name:  " add_middlename
+read -p "Enter the first name:  " add_firstname
+read -p "Enter the drivers licence:  " add_licence
+read -p "Enter the phone:  " add_phonenumber
+read -p "Enter the email:  " add_email
+read -p "Enter the address:  " add_address
+read -p "Enter the city:  " add_city
+read -p "Enter the state:  " add_state
+read -p "Enter the zipcode:  " add_zipcode
+read -p "Enter the country:  " add_country
+read -p "Enter the date of birth:  " add_dob
+read -p "Enter the gender:  " add_gender
+read -p "Enter any notes for this customer:  " add_notes
+
+echo "customer_id: " $customer_id
+echo "returncarID: " $return_car_id
+echo "last name:"  $add_lastname
+echo "middle name: " $add_middlename
+echo "first name: " $add_firstname
+echo "drivers licence: " $add_licence
+echo "phone: " $add_phonenumber
+echo "email: " $add_email
+echo "address: " $add_address
+echo "city: " $add_city
+echo "state: " $add_state
+echo "zipcode: " $add_zipcode
+echo "country: " $add_country
+echo "date of birth: " $add_dob
+echo "gender: " $add_gender
+echo "notes: " $add_notes
+read -p "Do you want to insert this customer's records into the customer_tbl?/n"
+read -p "If so, then press the enter key to enter your password and insert these records."
+
+psql $dbname << EOF
+INSERT INTO Customer_tbl(last_name, middle_name, first_name, driver_licence, phone, email, address, city, state, zip, country, dob, gender, notes)
+VALUES ('$add_lastname', '$add_middlename', '$add_firstname', '$add_licence', '$add_phonenumber', '$add_email', '$add_address', '$add_city',
+                '$add_state', '$add_zipcode', '$add_country', '$add_dob', '$add_gender', '$add_notes');
+EOF
+}
+
+#Matthew Mims
+#List all customers in the customer_tbl
+pickJ()
+{
+#maybe list all customers with a car out for rent???
+
+read -p "Press enter to input your password and see the list of customers:"
+
+psql $dbname << EOF
+select * from customer_tbl;
+EOF
+}
+
+#Matthew Mims
+#Find a customer in the data base
+pickK()
+{
+read -p "Enter the customers last name to view their information:" customer_information
+
+psql $dbname << EOF
+SELECT (last_name, first_name, credit_card_number, company, policy_number, phone, email, city, dob, date_out, number_of_days)
+FROM customer_tbl c 
+INNER JOIN booking_tbl b
+	ON c.customer_id = b.customer_id
+INNER JOIN payment_tbl p
+	ON c.customer_id = p.customer_id
+INNER JOIN ins_tbl i
+	ON c.customer_id = i.customer_id
+WHERE last_name = '$customer_information';
+EOF
+
+}
+
 
 
 #Julia Buniak
