@@ -368,6 +368,7 @@ echo
 #return_id is connected to a customer and a car
 read -p "Enter return id > "  return_id
 read -p "Enter extra charge id > " extra_charge_id 
+read -p "Enter check out id > " check_out_id
 
 #add necessary extra charges to database
 while [[ $extra_charge_id  != "Q" && $extra_charge_id  != "q" ]] 
@@ -381,7 +382,7 @@ echo "Now you can enter another extra charge or enter 'Q' to exit"
 read -p "Enter extra charge id > " extra_charge_id 
 done
 
-#create view through wich we can calculate the total anout for extra charges
+#create view through wich we can calculate the total amount for extra charges
 psql $dbname << EOF  
 DROP View  extra_charge_view;
 CREATE View  extra_charge_view AS
@@ -404,9 +405,9 @@ echo " Extra charge to be paid: $" $extra
 # calculate the total amount needs to be paid during return (gas_total + extra charges)
 psql $dbname << EOF
 BEGIN;
+UPDATE return_tbl SET check_out_id = $check_out_id  where return_id = $return_id; 
 UPDATE return_tbl SET extra_charge = $extra where return_id = $return_id;
 UPDATE return_tbl SET total = $extra + (SELECT  gas_total  FROM return_tbl  WHERE return_id = $return_id) WHERE return_id = $return_id;  
-SELECT  * from car_tbl where car_id = get_car_id_last_id();
 COMMIT
 EOF
 }
