@@ -9,42 +9,44 @@ echo "Pick the option what you want to do next:"
 echo 
 
 displayOptions() {
-echo "Check available cars                 ==========> [A]" #M
-echo "Book a car                           ==========> [B]" #J+
-echo "Check rented cars                    ==========> [C]" #J+
-echo "Check out a car                      ==========> [D]" #J+
+echo "Check available cars                 ==========> [A]" #M J
+echo "Book a car                           ==========> [B]" #J
+echo "Check rented cars                    ==========> [C]" #J
+echo "Check out a car                      ==========> [D]" #J
 echo "Car return                           ==========> [E]" #M
-echo "Add employee information             ==========> [F]" #J+
-echo "List all employees                   ==========> [G]" #J+
+echo "Add employee information             ==========> [F]" #J
+echo "List all employees                   ==========> [G]" #J
 echo "Find an employee                     ==========> [H]" #M
 echo "Add customer information             ==========> [I]" #M
 echo "List all customers                   ==========> [J]" #M
 echo "Find a customer                      ==========> [K]" #M
-echo "Extra charge                         ==========> [L]" #J+
-echo "Invoice for last return              ==========> [O]" #M
+echo "Extra charge                         ==========> [L]" #J
+echo "To print the invoice                 ==========> [O]" #M
 echo "Update  odometer                     ==========> [U]" #M 
 echo "To quit                              ==========> [Q]"
 echo
 }
 
-#Matthew Mims
+#Matthew Mims, Julia Buniak
 #function to chack available cars for certain period 
 pickA()
 {
-read -p "Enter date out" date_out
-read -p "Enter return date" return_date
+read -p "Enter date out >" date_out
+read -p "Enter return date >" return_date
 
 psql $dbname << EOF
-SELECT car_id as available, date_out, return_date as last_day_prior_rental, '$date_out' AS pick_up_date, '$return_date' AS return_date
-FROM booking_tbl
-WHERE car_id NOT IN
-                (select distinct car_id
-                 from booking_tbl
-                 where date_out between '$date_out'::date and '$return_date'::date
-                        or return_date between '$date_out'::date and '$return_date'::date
-                 group by car_id)
-GROUP BY car_id, booking_id
-Order By car_id;
+
+select distinct c.car_id, c.year, c.make, c.model, c.type,c.color, c.rate
+FROM car_tbl c FULL JOIN booking_tbl b
+ON c.car_id = b.car_id
+WHERE c.car_id NOT IN   (select c.car_id
+ 			FROM car_tbl c FULL JOIN booking_tbl b
+			ON c.car_id = b.car_id
+			where  (date_out <= '$date_out'::date AND return_date >= '$return_date'::date)
+			OR (date_out <= '$date_out'::date AND return_date <= '$return_date'::date AND return_date >= '$date_out'::date) 
+			OR (date_out >= '$date_out'::date AND return_date <= '$return_date'::date)
+			OR (date_out >= '$date_out'::date AND return_date >= '$return_date'::date AND date_out <= '$return_date'::date)
+			group by c.car_id);
 EOF
 }
 
@@ -68,6 +70,16 @@ date=$year$month$day
 read -p "Starting date of rent (YYYY-MM-DD) > " date_out
 read -p "Date when the car should be returned (YYYY-MM-DD) > " return_date
 
+
+count=$(psql -d ${dbname} -t -c "SELECT count(*) FROM booking_tbl WHERE car_id = $car_id AND ((date_out <= '$date_out'::date AND return_date >= '$return_date'::date) OR (date_out <= '$date_out'::date AND return_date <= '$return_date'::date AND return_date >= '$date_out'::date) OR (date_out >= '$date_out'::date AND return_date <= '$return_date'::date) OR (date_out >= '$date_out'::date AND return_date >= '$return_date'::date AND date_out <= '$return_date'::date)) " )
+
+while [[ $count -gt 0 ]]
+do
+echo "This car is already booked for these dates. Try to book another car!"
+read -p "Enter car ID number > " car_id
+count=$(psql -d ${dbname} -t -c "SELECT count(*) FROM booking_tbl WHERE car_id = $car_id AND ((date_out <= '$date_out'::date AND return_date >= '$return_date'::date) OR (date_out <= '$date_out'::date AND return_date <= '$return_date'::date AND return_date >= '$date_out'::date) OR (date_out >= '$date_out'::date AND return_date <= '$return_date'::date) OR(date_out >= '$date_out'::date AND return_date >= '$return_date'::date AND date_out <= '$return_date'::date)) " )
+done
+
 # add a new record into payment_tbl 
 psql $dbname << EOF 
 
@@ -75,38 +87,26 @@ INSERT INTO payment_tbl (credit_card_number, credit_card_exp_date, customer_id)
 VALUES ('$credit_card_number', TO_DATE('$date', 'YYYYMMDD'), $customer_id);
 EOF
 
-count=$(psql -d ${dbname} -t -c "SELECT count(*) FROM booking_tbl WHERE car_id = $car_id AND ((date_out < '$date_out'::date AND return_date > '$return_date'::date) OR (date_out < '$date_out'::date AND return_date < '$return_date'::date AND return_date > '$date_out'::date) OR (date_out > '$date_out'::date AND return_date < '$return_date'::date) OR (date_out > '$date_out'::date AND return_date > '$return_date'::date AND date_out < '$return_date'::date)) " )
-#echo "Count = "$count
-
-while [[ $count -gt 0 ]]
-do
-echo "This car is already booked for these dates. Try to book another car!"
-read -p "Enter car ID number > " car_id
-count=$(psql -d ${dbname} -t -c "SELECT count(*) FROM booking_tbl WHERE car_id = $car_id AND ((date_out < '$date_out'::date AND return_date > '$return_date'::date) OR (date_out < '$date_out'::date AND return_date < '$return_date'::date AND return_date > '$date_out'::date) OR (date_out > '$date_out'::date AND return_date < '$return_date'::date) OR(date_out > '$date_out'::date AND return_date > '$return_date'::date AND date_out < '$return_date'::date)) " )
-done
-
 payment_id=$(psql -d ${dbname} -t -c "SELECT last_value from payment_tbl_payment_id_seq" )
-
-#add  booking into booking_tbl
-psql $dbname << EOF 
-INSERT INTO booking_tbl(customer_id, car_id, payment_id, date_out, return_date) 
-VALUES ($customer_id, $car_id, $payment_id, '$date_out', '$return_date');
-EOF
-
-last_id=$(psql -d ${dbname} -t -c "SELECT last_value from booking_tbl_booking_id_seq" )
 
 #display information about last booking
 echo  
 echo "Here is information about your booking: "
 echo 
 
+#add  booking into booking_tbl
 psql $dbname << EOF 
+BEGIN;
+INSERT INTO booking_tbl(customer_id, car_id, payment_id, date_out, return_date) 
+VALUES ($customer_id, $car_id, $payment_id, '$date_out', '$return_date');
+
 SELECT ctm.first_name, ctm.last_name, car.make, car.model, car.type, car.color, p.credit_card_number, b.date_out, b.return_date 
 FROM  customer_tbl ctm, car_tbl car, booking_tbl b, payment_tbl p 
-WHERE b.booking_id = $last_id
+WHERE b.booking_id = (SELECT last_value from booking_tbl_booking_id_seq)
 AND b.car_id = car.car_id
 AND b.customer_id = ctm.customer_id
 AND b.payment_id = p.payment_id;
+COMMIT;
 EOF
 }
 
@@ -151,9 +151,8 @@ EOF
 last_ins_id=$(psql -d ${dbname} -t -c "SELECT last_value from ins_tbl_ins_id_seq" ) 
 
 days=$(psql -d ${dbname} -t -c "SELECT number_of_days from booking_tbl WHERE booking_id = $booking_id" )
-car_id=$(psql -d ${dbname} -t -c "SELECT car_id from booking_tbl WHERE booking_id = $booking_id" )
-rate=$(psql -d ${dbname} -t -c "SELECT rate from car_tbl WHERE car_id = $car_id" )
-ins_rate=$(psql -d ${dbname} -t -c "SELECT day_rate from insurance_type_tbl WHERE type_id = (SELECT type_id FROM ins_tbl WHERE ins_id = $last_ins_id)" )
+rate=$(psql -d ${dbname} -t -c "SELECT rate from car_tbl WHERE car_id = (SELECT car_id from booking_tbl WHERE booking_id = $booking_id)" )
+ins_rate=$(psql -d ${dbname} -t -c "SELECT day_rate from insurance_type_tbl WHERE type_id = (SELECT type_id FROM ins_tbl WHERE ins_id =(SELECT last_value from ins_tbl_ins_id_seq))" )
 
 # to calculate the base payment for booked days (formula: days * rate)
 charge=$(awk "BEGIN {printf \"%.2f\", ${days}*${rate}}") 
@@ -168,7 +167,6 @@ VALUES
 ($booking_id, $employee_id, $last_ins_id, current_date, $charge, $ins_payment);
 EOF
 
-last_id=$(psql -d ${dbname} -t -c "SELECT last_value from check_out_tbl_check_out_id_seq" )
 
 
 #display info about last check_out
@@ -179,7 +177,7 @@ echo
 psql $dbname << EOF 
 SELECT ctm.first_name, ctm.last_name,car.make, car.model, b.date_out, b.return_date, b.number_of_days, ch.invoice_date, ch.charge, ch.ins_payment,  ch.sales_tax, ch.total
 FROM  customer_tbl ctm, car_tbl car, booking_tbl b, check_out_tbl ch 
-WHERE check_out_id = $last_id
+WHERE check_out_id = (SELECT last_value from check_out_tbl_check_out_id_seq)
 AND ch.booking_id = b.booking_id
 AND b.customer_id = ctm.customer_id 
 AND b.car_id = car.car_id;
@@ -194,7 +192,7 @@ pickE()
 read -p "Enter your Employee ID:  " return_employee_id
 read -p "Enter the Car ID you are returning:  " return_car_id
 read -p "Enter the Customer ID:  " return_customer_id
-read -p "Enter the new milage:  " milage_in                     #Trigger Calculate miles total or if elif statement
+read -p "Enter the new milage:  " milage_in
 read -p "How many gallons of gas did we add to fill:  " gallons_gas_filled
 read -p "How much did the gas cost per gallon:  " gas_price_per_gallon
 read -p "Do you have any notes for this rental?  " rental_notes
@@ -270,8 +268,6 @@ EOF
 #Find an employee
 pickH()
 {
-#add different query columns
-
 read -p "Find all information on an employee.  Enter the employee's ID:  " find_emp_id
 
 psql $dbname << EOF
@@ -314,7 +310,7 @@ echo "country: " $add_country
 echo "date of birth: " $add_dob
 echo "gender: " $add_gender
 echo "notes: " $add_notes
-read -p "Do you want to insert this customer's records into the customer_tbl?/n"
+read -p "Do you want to insert this customer's records into the customer_tbl?"
 read -p "If so, then press the enter key to enter your password and insert these records."
 
 psql $dbname << EOF
@@ -328,8 +324,6 @@ EOF
 #List all customers in the customer_tbl
 pickJ()
 {
-#maybe list all customers with a car out for rent???
-
 read -p "Press enter to input your password and see the list of customers:"
 
 psql $dbname << EOF
@@ -344,7 +338,7 @@ pickK()
 read -p "Enter the customers last name to view their information:" customer_information
 
 psql $dbname << EOF
-SELECT (last_name, first_name, credit_card_number, company, policy_number, phone, email, city, dob, date_out, number_of_days)
+SELECT last_name, first_name, credit_card_number, company, policy_number, phone, email, city, dob, date_out, number_of_days
 FROM customer_tbl c 
 INNER JOIN booking_tbl b
 	ON c.customer_id = b.customer_id
@@ -412,6 +406,57 @@ COMMIT
 EOF
 }
 
+#Matthew Mims
+#Function to show the invoice
+pickO()
+{
+read -p "Enter return_id to print the invoice:  " return_id_input
+
+psql $dbname << EOF
+
+
+SELECT distinct r.return_id as RID, r.employee_id as EID, p.payment_id as PID, ctm.first_name as First, ctm.last_name as Last,
+           b.number_of_days as Days, car.rate, r.price_per_gallon as PerGal, r.gas_refill as Gallons, r.gas_total,
+           r.extra_charge, chk.ins_payment, chk.charge, chk.sales_tax, chk.ins_payment, chk.total,
+           (select chk.total + r.total) as invoice_total
+FROM return_tbl r,  booking_tbl b, customer_tbl ctm, car_tbl car,  payment_tbl p, check_out_tbl chk
+WHERE r.return_id = $return_id_input
+AND r.check_out_id = chk.check_out_id
+AND chk.booking_id = b.booking_id
+AND b.customer_id = ctm.customer_id
+AND b.car_id = car.car_id
+AND b.payment_id = p.payment_id;
+
+EOF
+
+}
+
+#Matthew Mims
+#Function to update the odometer
+pickU()
+{
+
+read -p "Press enter if you want to insert the new_mileage into the car_tbl: "
+read -p "Enter car_id to update it's new_milage in the car_tbl:   >>" get_car_id
+
+psql $dbname << EOF
+
+begin;
+select c.odometer as original_miles_updated, r.new_mileage as new_return_miles
+from car_tbl c, return_tbl r where c.car_id = r.car_id and c.car_id = $get_car_id;
+update car_tbl
+	set odometer = return_tbl.new_mileage
+	from return_tbl
+	where car_tbl.car_id = return_tbl.car_id
+	and car_tbl.car_id = $get_car_id;
+select c.odometer as _miles, r.new_mileage as new_return_miles
+from car_tbl c, return_tbl r where c.car_id = r.car_id and c.car_id = $get_car_id;
+commit;
+EOF
+
+}
+
+
 #Julia Buniak
 displayOptions
 echo 
@@ -420,7 +465,6 @@ while [[ $reply  != "Q" && $reply  != "q" ]]
 do
 case $reply in
       A|a) pickA;;
-      X|x) pickX;;
       B|b) pickB;;
       C|c) pickC;;
       D|d) pickD;;
@@ -430,18 +474,15 @@ case $reply in
       H|h) pickH;;
       I|i) pickI;;
       J|j) pickJ;;
-      K|k) pickK;; 
+      K|k) pickK;;
       L|l) pickL;;
-      S|s) pickS;;
       O|o) pickO;;
       U|u) pickU;;
       Q|q) exit;;
       *) echo "Invalid choice!"; exit;;
- esac
+esac
 echo "Now you can exit the menu (press Q for that) or pick another option"
 displayOptions
 read -p "Enter appropriate option >  " reply
 done
-echo
-
 
