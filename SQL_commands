@@ -1,0 +1,230 @@
+CREATE TABLE INSURANCE_TYPE_TBL (
+Type_id serial primary key,
+Name Varchar(30),
+Description Varchar(65),
+Charge Decimal(4,2));
+CREATE TABLE
+
+alter table INSURANCE_TYPE_TBL rename Column charge TO rate;
+ALTER TABLE
+update INSURANCE_TYPE_TBL set description = 'Purchased from Smart Car Rentals' where type_id = 1; 
+update INSURANCE_TYPE_TBL set name = 'Purchased' where type_id = 1;  
+alter table INSURANCE_TYPE_TBL rename Column rate TO date_rate;
+INSERT INTO INSURANCE_TYPE_TBL (name, description, day_rate) 
+VALUES ('Personal', 'Owned by customer', 0);
+
+
+
+CREATE TABLE CHECK_OUT_TBL (
+Check_out_id serial primary key,
+Car_id integer,
+Booking_id integer,
+Customer_id integer,
+Employee_id integer,
+Insurance_id integer,
+Payment_id integer,
+Invoice_Date date,
+Charge Decimal (7,2),
+Sales_tax decimal (4,2),
+Total decimal (7,2));
+
+alter table check_out_tbl add constraint car_id_fkey foreign key (car_id) references car_tbl(car_id);
+alter table check_out_tbl add constraint booking_id_fkey foreign key (booking_id) references booking_tbl(booking_id);
+alter table check_out_tbl add constraint customer_id_fkey foreign key (customer_id) references customer_tbl(customer_id);
+alter table check_out_tbl add constraint employee_id_fkey foreign key (employee_id) references employee_tbl(employee_id);
+alter table check_out_tbl add constraint insurance_id_fkey foreign key (insurance_id) references ins_tbl(ins_id);
+alter table check_out_tbl add constraint payment_id_fkey foreign key (payment_id) references payment_tbl(payment_id);
+Alter table check_out_tbl add check (invoice_date >= current_date);
+
+
+ibuniak=> alter table check_out_tbl drop column car_id;
+ALTER TABLE
+ibuniak=> alter table check_out_tbl drop column customer_id;
+ALTER TABLE
+ibuniak=> alter table check_out_tbl drop column payment_id;
+ALTER TABLE
+Alter table check_out_tbl add column ins_payment decimal(7,2);
+
+
+CREATE TABLE EXTRA_CHARGE_TBL (
+Extra_charge_id serial primary key,
+type varchar(35),
+charge decimal(7,2),
+description varchar (100));
+
+INSERT INTO EXTRA_CHARGE_TBL (type, charge, description)  VALUES 
+('cleaning_fee_1', 50, 'washing and vacuuming, regular service'); 
+INSERT INTO EXTRA_CHARGE_TBL (type, charge, description)  VALUES 
+('cleaning_fee_2', 100, 'washing and vacuuming, extra service');
+INSERT INTO EXTRA_CHARGE_TBL (type, charge, description)  VALUES            
+('windshield crack', 300, 'changing the windshield'); 
+INSERT INTO EXTRA_CHARGE_TBL (type,charge, description)  VALUES
+('broken side window', 400, 'changing the window'),
+('lost key', 100, 'making the duplicate'),
+('bent bumper', 500, 'fixing the bumper'),
+('small scratch', 600, 'fixing the scratch'),
+('big scratch', 1000, 'fixing the scratch');
+INSERT INTO EXTRA_CHARGE_TBL (type, description)  VALUES 
+('ticket', 'the amount will be defined after getting the ticket'); 
+INSERT 0 1
+
+
+CREATE TABLE RETURN_TBL (
+Return_id serial primary key,
+Car_id integer,
+Customer_id integer,
+Employee_Id integer references employee_tbl(Employee_id),
+New_mileage Decimal(7,1),
+Gas_refill Decimal(4,2),
+Price_per_gallon Decimal(4,2),
+Notes varchar(100));
+
+alter table return_tbl add column check_out_idSelect  integer references check_out_tbl(check_out_id);
+alter table return_tbl add column gas_total decimal(7,2);
+alter table return_tbl add column extra_charge decimal(7,2);
+alter table return_tbl add column total decimal(7,2);
+ 
+
+alter table return_tbl add constraint car_id_fkey foreign key (car_id) references car_tbl(car_id);
+alter table return_tbl add constraint customer_id_fkey foreign key (customer_id) references customer_tbl(customer_id);
+
+
+
+CREATE TABLE RETURN_EXTRA_CHARGE_TBL(
+Return_id integer references return_tbl(return_id),
+Extra_charge_id integer references EXTRA_CHARGE_TBL(Extra_charge_id));
+alter table return_extra_charge_tbl add constraint return_extra_charge_tbl_pkey primary key (return_id, extra_charge_id);
+
+
+
+CREATE TABLE EMPLOYEE_TBL (
+Employee_id serial primary key,
+last_name varchar(25) not null,
+Middle_name varchar(20),
+first_name varchar(20),
+phone varchar (12),
+email varchar (40),
+address varchar (30),
+city varchar (20),
+state char (2),
+zip varchar(9),
+dob date,
+gender char(1),
+position varchar(25));
+
+Alter table employee_tbl alter column zip TYPE char(5);
+
+
+Alter table employee_tbl add check (char_length(phone) = 10);
+Alter table employee_tbl add check (char_length(state) = 2);
+Alter table employee_tbl add check (char_length(zip) = 5);
+Alter table employee_tbl add check (gender = 'M' OR gender = 'F');
+Alter table employee_tbl add check (age(CAST(DOB AS timestamp)) >= interval '16 years');
+
+
+INSERT INTO EMPLOYEE_TBL (Last_name, Middle_name, First_name, Phone, Email, Address, City, State, Zip, DOB, Gender, Position) VALUES
+('Smith', NULL, 'Tom', '9168566858', 'smith@gmail.com', '123 First St','Roseville','CA','95747', '10-11-1980', 'M', 'Rental Sales Agent');
+INSERT INTO EMPLOYEE_TBL (Last_name, Middle_name, First_name, Phone, Email, Address, City, State, Zip, DOB, Gender, Position) VALUES
+('Johnson', NULL, 'Harry', '9163948756', 'johnson@gmail.com', '968 Main St','Rocklin','CA','95661', '06-02-1977', 'M', 'Rental Sales Agent');
+INSERT INTO EMPLOYEE_TBL (Last_name, Middle_name, First_name, Phone, Email, Address, City, State, Zip, DOB, Gender, Position) VALUES
+('Lee', NULL, 'Ted', '9164839754', 'lee@gmail.com', '755 Second St','Rocklin','CA','95661', '02-04-1975', 'M', 'Rental Manager');
+INSERT INTO EMPLOYEE_TBL (First_name, Middle_name, Last_name, Phone, Email, Address, City, State, Zip, DOB, Gender, Position) VALUES ('Mary', 'Ann', 'Tomson', '9164839438', 'tomson@gmail.com', '288 N St','Sacramento','CA','94203', '01-10-1979', 'F', 'Rental Manager'),('Karl', 'T.', 'Green', '9254839520', 'green@gmail.com', '12 J St','Sacramento','CA','94207', '03-11-1991', 'M', 'Cleaner'),
+('Dilan', NULL, 'Nielson', '9252994536', 'nielson@gmail.com', '1895 H St','Sacramento','CA','94229', '12-01-1988', 'M', 'Rental Sales Agent'),
+('Bill', 'J.', 'Collin', '9169883782', 'collin@gmail.com', '229 Washington St','Sacramento','CA','94229', '07-05-1998', 'M', 'Mechanic');
+INSERT INTO EMPLOYEE_TBL (Last_name, Middle_name, First_name, Phone, Email, Address, City, State, Zip, DOB, Gender, Position) VALUES ('Mary', 'Ann', 'Tomson', '9164839438', 'tomson@gmail.com', '288 N St','Sacramento','CA','94203', '01-10-1979', 'F', 'Rental Manager'),
+
+INSERT INTO EMPLOYEE_TBL (Last_name, Middle_name, First_name, Phone, Email, Address, City, State, Zip, DOB, Gender, Position) VALUES ('Parker', 'Hope', 'Sarah', '9169979438', 'parker@gmail.com', '843 J St','Sacramento','CA','94229', '04-25-1978', 'F', 'Rental Manager');
+
+
+PREVILEGES
+
+ibuniak-> GRANT SELECT, INSERT, UPDATE, DELETE on INSURANCE_TYPE_TBL, CHECK_OUT_TBL, EXTRA_CHARGE_TBL, EXTRA_CHARGE_TBL, RETURN_TBL, RETURN_EXTRA_CHARGE_TBL, EMPLOYEE_TBL to mmims;
+GRANT
+
+GRANT SELECT, INSERT, UPDATE, DELETE on INSURANCE_TYPE_TBL, CHECK_OUT_TBL, EXTRA_CHARGE_TBL, EXTRA_CHARGE_TBL, RETURN_TBL, RETURN_EXTRA_CHARGE_TBL, EMPLOYEE_TBL to dKyubwa;
+
+GRANT USAGE, SELECT, UPDATE on check_out_tbl_check_out_id_seq, employee_tbl_employee_id_seq,extra_charge_tbl_extra_charge_id_seq,  insurance_type_tbl_type_id_seq, return_tbl_return_id_seq to dKyubwa; 
+
+If we need to grant some privileges to employees of “Smart Car Rentals” company, we can do it with the following statements:
+ GRANT SELECT, INSERT, UPDATE ON booking_tbl, customer_tbl, check_out_tbl, return_tbl, return_extra_charge_tbl TO tsmith;
+ GRANT SELECT, INSERT, UPDATE ON booking_tbl, customer_tbl, check_out_tbl, return_tbl, return_extra_charge_tbl TO tjackson with GRANT OPTION;
+ REVOKE INSERT, UPDATE ON booking_tbl, customer_tbl, check_out_tbl, return_tbl, return_extra_charge_tbl FROM tsmith;
+ 
+
+
+FUNCTIONS AND TRIGGERS
+
+
+#Trigger to calculate tax
+
+ CREATE OR REPLACE FUNCTION calculate_tax()
+RETURNS TRIGGER AS
+$$
+BEGIN
+NEW.sales_tax := (NEW.charge + NEW.ins_payment) * 0.075;
+RETURN NEW;
+END
+$$
+LANGUAGE plpgsql;
+
+CREATE TRIGGER calculate_tax_trig
+BEFORE INSERT ON check_out_tbl
+FOR EACH ROW
+EXECUTE PROCEDURE calculate_tax();
+CREATE TRIGGER
+
+#Trigger to calculate total amount to pay during the check out
+
+CREATE OR REPLACE FUNCTION calculate_total()
+
+CREATE OR REPLACE FUNCTION calculate_total()
+RETURNS TRIGGER AS
+$$
+BEGIN
+NEW.total := NEW.charge + NEW.ins_payment + NEW.sales_tax;
+RETURN NEW;
+END
+$$
+LANGUAGE plpgsql;
+
+CREATE TRIGGER calculate_total_trig
+BEFORE INSERT ON check_out_tbl
+FOR EACH ROW
+EXECUTE PROCEDURE calculate_total();
+CREATE TRIGGER
+
+
+# Trigger to calculate gas_total for return_tbl
+ 
+CREATE OR REPLACE FUNCTION calculate_gas_total()
+RETURNS TRIGGER AS
+$$
+BEGIN
+NEW.gas_total := NEW.gas_refill * NEW.price_per_gallon; 
+RETURN NEW;
+END
+$$
+LANGUAGE plpgsql;
+
+CREATE TRIGGER calculate_gas_total_trig
+BEFORE INSERT ON return_tbl
+FOR EACH ROW
+EXECUTE PROCEDURE calculate_gas_total();
+
+# Trigger to calculate total amount to pay during return (all extra charges + gas refill)
+
+CREATE OR REPLACE FUNCTION calculate_total_return()
+RETURNS TRIGGER AS
+$$
+BEGIN
+NEW.total := NEW.gas_total + NEW.extra_charge;
+RETURN NEW;
+END
+$$
+LANGUAGE plpgsql;
+
+CREATE TRIGGER calculate_total_return_trig
+BEFORE INSERT ON return_tbl
+FOR EACH ROW
+EXECUTE PROCEDURE calculate_total_return();
+
